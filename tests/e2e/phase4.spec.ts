@@ -1,0 +1,51 @@
+import { expect, test } from "@playwright/test";
+
+test("RLC transient run, time cursor, accessible values, stale settings and export", async ({ page }) => {
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "Example" }).selectOption("rlc");
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Analysis", exact: true })).toHaveValue("transient");
+  await page.getByRole("button", { name: "Run Transient", exact: true }).click();
+  await expect(page.locator("#analysis-status")).toContainText("Transient solved successfully");
+  await expect(page.locator("#transient-view .transient-chart")).toHaveCount(2);
+  await expect(page.locator("#transient-view .ac-legend-item")).toHaveCount(3);
+  const slider = page.getByRole("slider", { name: "Time sample" });
+  await slider.focus();
+  await slider.press("End");
+  await expect(page.locator("#transient-readout")).toContainText("20 ms");
+  await expect(page.locator("#transient-readout")).toContainText("10 V");
+  await page.getByText("Text-accessible sampled time values", { exact: true }).click();
+  await expect(page.locator("#transient-view tbody tr")).toHaveCount(21);
+  await slider.focus();
+  await slider.press("Home");
+  await expect(page.locator("#transient-readout")).toContainText("0 s");
+  await expect(page.locator("#transient-view details")).toHaveAttribute("open", "");
+  await page.getByLabel("Duration (s)", { exact: true }).fill("30 ms");
+  await page.getByLabel("Duration (s)", { exact: true }).press("Tab");
+  await expect(page.locator("#analysis-status")).toContainText("stale");
+  await expect(page.locator("#transient-view svg")).toHaveCount(0);
+  await page.getByRole("button", { name: "Run Transient", exact: true }).click();
+  await expect(page.locator("#analysis-status")).toContainText("Transient solved successfully");
+  await page.getByRole("combobox", { name: "Export format" }).selectOption("json");
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  expect((await downloaded).suggestedFilename()).toBe("circuit.json");
+});
+
+test("transient waveform editor accepts SI time units and invalid settings preserve results", async ({ page }) => {
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "Example" }).selectOption("rlc");
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await page.locator('#schematic [data-component="v1"] text').first().click();
+  await expect(page.getByLabel("Transient waveform", { exact: true })).toHaveValue("pulse");
+  await page.getByLabel("Delay (s)", { exact: true }).fill("2 ms");
+  await page.getByLabel("Delay (s)", { exact: true }).press("Tab");
+  await page.getByRole("button", { name: "Run Transient", exact: true }).click();
+  await expect(page.locator("#analysis-status")).toContainText("Transient solved successfully");
+  await page.getByLabel("Time step (s)", { exact: true }).fill("0");
+  await page.getByLabel("Time step (s)", { exact: true }).press("Tab");
+  await expect(page.locator("#notice")).toContainText("greater than zero");
+  await expect(page.locator("#analysis-status")).toContainText("Transient solved successfully");
+});

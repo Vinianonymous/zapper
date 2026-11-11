@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10141c" />
+    <title>Circuit Simulator — DC, AC &amp; Transient Analysis</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">◈</span>
+          <h1>Circuit Simulator</h1>
+          <small>Schematic editor · DC, AC &amp; transient</small>
+        </div>
+        <nav class="toolbar" aria-label="Circuit actions">
+          <button id="new" type="button">New</button>
+          <label class="compact">Example
+            <select id="example">
+              <option value="divider">Voltage divider</option>
+              <option value="switch">Switched divider</option>
+              <option value="rc">RC low-pass (AC)</option>
+              <option value="rlc">RLC pulse response</option>
+              <option value="blank">Blank circuit</option>
+            </select>
+          </label>
+          <button id="load-example" type="button">Load</button>
+          <button id="import" type="button">Import JSON</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden aria-label="Select circuit JSON" />
+          <label class="compact">Export format
+            <select id="export-format">
+              <option value="json">Circuit JSON</option>
+              <option value="svg">SVG schematic</option>
+              <option value="png">PNG schematic (2×)</option>
+            </select>
+          </label>
+          <button id="export" type="button" class="primary">Export</button>
+          <span class="separator" aria-hidden="true"></span>
+          <button id="undo" type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo">↶</button>
+          <button id="redo" type="button" title="Redo (Ctrl/Cmd+Y)" aria-label="Redo">↷</button>
+          <label class="compact">Analysis
+            <select id="analysis-kind">
+              <option value="dc">DC operating point</option>
+              <option value="ac">AC sweep</option>
+              <option value="transient">Transient</option>
+            </select>
+          </label>
+          <button id="run" type="button" class="primary">Run DC</button>
+          <button id="cancel" type="button" disabled>Cancel</button>
+        </nav>
+      </header>
+      <p id="notice" role="status" aria-live="polite">Ready. Place parts, draw wires, and connect a voltage divider.</p>
+
+      <div class="workbench">
+        <aside class="palette" aria-label="Components and tools">
+          <h2>Tools</h2>
+          <div id="tools" class="palette-group"></div>
+          <h2>Components</h2>
+          <div id="components" class="palette-group"></div>
+          <details class="help">
+            <summary>Shortcuts &amp; wiring</summary>
+            <p><kbd>Esc</kbd> select/cancel · <kbd>Del</kbd> remove · <kbd>R</kbd> rotate · <kbd>Ctrl/Cmd+Z</kbd> undo · <kbd>Ctrl/Cmd+Y</kbd> redo.</p>
+            <p>Drag parts to move. Wires stay in place, so moving or rotating can visibly detach pins. Two crossing wires do not connect unless a junction dot is placed.</p>
+            <p>Voltage probe: click a pin. Current probe: click a component. Shift changes the wire elbow while drawing.</p>
+          </details>
+        </aside>
+
+        <section class="canvas-panel" aria-label="Schematic editor">
+          <div class="canvas-toolbar">
+            <span id="tool-help">Select a part to edit it.</span>
+            <div class="zoom-controls">
+              <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+              <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+              <button id="fit" type="button">Fit circuit</button>
+            </div>
+          </div>
+          <svg id="schematic" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Editable circuit schematic" tabindex="0"></svg>
+          <p class="canvas-hint">Scroll to zoom · Middle-drag to pan · R rotates selection</p>
+          <section class="connectivity" aria-labelledby="connectivity-heading">
+            <h2 id="connectivity-heading">Connectivity <span id="net-count"></span></h2>
+            <div id="net-list" class="net-list"></div>
+          </section>
+        </section>
+
+        <aside class="inspector" aria-label="Component inspector">
+          <h2>Inspector</h2>
+          <div id="inspector-content"><p class="muted">Select a component, wire or junction.</p></div>
+          <h2>Probes</h2>
+          <div id="probe-list"><p class="muted">No probes selected.</p></div>
+          <h2>Analysis settings</h2>
+          <div id="analysis-settings"></div>
+          <h2>Phases</h2>
+          <p class="muted">DC, AC and transient analysis are available. All computation stays in your browser.</p>
+        </aside>
+      </div>
+      <section id="results" class="results" aria-labelledby="results-heading">
+        <details open>
+          <summary id="results-heading">Measurements &amp; diagnostics</summary>
+          <p id="analysis-status" role="status" aria-live="polite">No simulation has been run.</p>
+          <ul id="diagnostics" role="list"></ul>
+          <div id="dc-view">
+            <p class="muted">Voltage is relative to ground. Branch current is positive from pin a to pin b; source pin a is positive. Select a part to see its direction arrow.</p>
+            <table>
+              <caption>Probe readings</caption>
+              <thead><tr><th scope="col">Probe</th><th scope="col">DC value</th><th scope="col">Reference</th></tr></thead>
+              <tbody id="probe-readings"><tr><td colspan="3">No simulation has been run.</td></tr></tbody>
+            </table>
+          </div>
+          <div id="ac-view" hidden>
+            <p class="muted">Magnitude is the phasor amplitude; dB is relative to 1 V or 1 A. Zero magnitude is displayed at −200 dB. Phase follows <code>V(t) = Re{V e^{jωt}}</code>. Current phase is measured from pin a to pin b. Hover either chart or use the sample slider to move the shared cursor.</p>
+            <div id="ac-legend" class="ac-legend" aria-label="AC probe legend"></div>
+            <div id="ac-magnitude" class="ac-chart" data-metric="magnitude"></div>
+            <div id="ac-phase" class="ac-chart" data-metric="phase"></div>
+            <label class="ac-cursor-control">Cursor sample <input id="ac-cursor-sample" type="range" min="0" max="0" value="0" disabled aria-describedby="ac-readout" /></label>
+            <p id="ac-readout" class="ac-readout" role="status" aria-live="polite">Run an AC sweep to read probe values.</p>
+            <details class="ac-table">
+              <summary>Text-accessible sampled values</summary>
+              <div class="ac-table-scroll">
+                <table>
+                  <caption>Sampled AC probe values across the logarithmic sweep</caption>
+                  <thead><tr id="ac-table-head"><th scope="col">Frequency</th></tr></thead>
+                  <tbody id="ac-table-body"><tr><td>No simulation has been run.</td></tr></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+          <div id="transient-view" hidden></div>
+        </details>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
