@@ -34,7 +34,7 @@ export function solveDc(circuit: ResolvedCircuit): DcResult {
   const graph: number[][] = Array.from({ length: nodeCount }, () => []);
   for (const c of elements) {
     const [a, b] = nodes(c);
-    if (c.kind === "resistor" || constrained(c)) { graph[a]!.push(b); graph[b]!.push(a); }
+    if (c.kind === "resistor" || c.kind === "variableResistor" || c.kind === "lamp" || constrained(c)) { graph[a]!.push(b); graph[b]!.push(a); }
   }
   const visited = new Set([0]); const queue = [0];
   for (let i = 0; i < queue.length; i++) for (const next of graph[queue[i]!]!) if (!visited.has(next)) { visited.add(next); queue.push(next); }
@@ -75,7 +75,7 @@ export function solveDc(circuit: ResolvedCircuit): DcResult {
   const branchIndex = new Map(branches.map((c, i) => [c.id, nodeCount - 1 + i]));
   for (const c of elements) {
     const [a, b] = nodes(c); const ai = a - 1, bi = b - 1;
-    if (c.kind === "resistor") {
+    if (c.kind === "resistor" || c.kind === "variableResistor" || c.kind === "lamp") {
       const g = 1 / c.parameters.ohms;
       stamp(ai, ai, g); stamp(bi, bi, g); stamp(ai, bi, -g); stamp(bi, ai, -g);
     } else if (c.kind === "currentSource") {
@@ -92,7 +92,7 @@ export function solveDc(circuit: ResolvedCircuit): DcResult {
   for (const c of elements) {
     const [a, b] = nodes(c);
     let current = 0;
-    if (c.kind === "resistor") current = (nodeVolts[a]! - nodeVolts[b]!) / c.parameters.ohms;
+    if (c.kind === "resistor" || c.kind === "variableResistor" || c.kind === "lamp") current = (nodeVolts[a]! - nodeVolts[b]!) / c.parameters.ohms;
     else if (c.kind === "currentSource") current = c.parameters.dc;
     else if (constrained(c)) current = solution[branchIndex.get(c.id)!]!;
     if (!Number.isFinite(current)) fail("ill-conditioned", "Computed current is not finite. Reduce extreme component values.", [c.id]);

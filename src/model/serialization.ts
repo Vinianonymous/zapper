@@ -51,7 +51,7 @@ export function validateDocument(input: unknown): CircuitDocument {
   const raw = record(input, "Circuit");
   if (raw.schemaVersion !== 1) throw new Error(`Unsupported circuit schema version: ${String(raw.schemaVersion)}`);
   const ids = new Set<string>(), refs = new Set<string>();
-  const kinds: ComponentKind[] = ["resistor", "capacitor", "inductor", "voltageSource", "currentSource", "switch", "ground"];
+  const kinds: ComponentKind[] = ["resistor", "variableResistor", "lamp", "capacitor", "inductor", "voltageSource", "currentSource", "switch", "ground"];
   const components = array(raw.components, "components", 500).map((entry, i): Component => {
     const label = `components[${i}]`, c = record(entry, label), id = text(c.id, `${label}.id`), ref = text(c.ref, `${label}.ref`);
     unique(id, ids, label);
@@ -64,6 +64,8 @@ export function validateDocument(input: unknown): CircuitDocument {
     const base = { id, ref, position: position(c.position, `${label}.position`), rotation: rotation as Rotation };
     switch (kind) {
       case "resistor": return { ...base, kind, parameters: { ohms: number(p.ohms, `${label}.ohms`, 1e-12) } };
+      case "variableResistor": return { ...base, kind, parameters: { ohms: number(p.ohms, `${label}.ohms`, 1e-12) } };
+      case "lamp": return { ...base, kind, parameters: { ohms: number(p.ohms, `${label}.ohms`, 1e-12) } };
       case "capacitor": return { ...base, kind, parameters: { farads: number(p.farads, `${label}.farads`, 1e-12) } };
       case "inductor": return { ...base, kind, parameters: { henrys: number(p.henrys, `${label}.henrys`, 1e-12) } };
       case "switch": {

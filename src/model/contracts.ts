@@ -1,7 +1,7 @@
 /** v1 persisted format. Every numerical field uses SI base units, never formatted strings. */
 export type Point = { x: number; y: number };
 export type Rotation = 0 | 90 | 180 | 270;
-export type ComponentKind = "resistor" | "capacitor" | "inductor" | "voltageSource" | "currentSource" | "switch" | "ground";
+export type ComponentKind = "resistor" | "variableResistor" | "lamp" | "capacitor" | "inductor" | "voltageSource" | "currentSource" | "switch" | "ground";
 export type TwoPinKind = Exclude<ComponentKind, "ground">;
 export type PinName = "a" | "b" | "gnd";
 export type PinRef = { componentId: string; pin: PinName };
@@ -29,6 +29,8 @@ export type SourceParameters = {
 
 export type Component =
   | BaseComponent<"resistor", { ohms: number }>
+  | BaseComponent<"variableResistor", { ohms: number }>
+  | BaseComponent<"lamp", { ohms: number }>
   | BaseComponent<"capacitor", { farads: number }>
   | BaseComponent<"inductor", { henrys: number }>
   | BaseComponent<"voltageSource", SourceParameters>

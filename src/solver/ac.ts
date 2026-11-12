@@ -41,7 +41,7 @@ const branchBranch = (component: Component): boolean =>
   component.kind === "voltageSource" || (component.kind === "switch" && component.parameters.closed);
 
 const conductsAtAc = (component: Component): boolean =>
-  component.kind === "resistor" || component.kind === "capacitor" || component.kind === "inductor" ||
+  component.kind === "resistor" || component.kind === "variableResistor" || component.kind === "lamp" || component.kind === "capacitor" || component.kind === "inductor" ||
   component.kind === "voltageSource" || (component.kind === "switch" && component.parameters.closed);
 
 function sourcePhasor(component: Extract<Component, { kind: "voltageSource" | "currentSource" }>): Complex {
@@ -179,7 +179,7 @@ export function solveAcAt(circuit: ResolvedCircuit, frequencyHz: number): AcPoin
 
   for (const component of elements) {
     const [a, b] = nodes(component);
-    if (component.kind === "resistor") {
+    if (component.kind === "resistor" || component.kind === "variableResistor" || component.kind === "lamp") {
       stampAdmittance(a, b, { re: 1 / component.parameters.ohms, im: 0 });
     } else if (component.kind === "capacitor") {
       const susceptance = omega * component.parameters.farads;
@@ -212,7 +212,7 @@ export function solveAcAt(circuit: ResolvedCircuit, frequencyHz: number): AcPoin
     const [a, b] = nodes(component);
     const difference = subtract(nodeVolts[a]!, nodeVolts[b]!);
     let current = zero();
-    if (component.kind === "resistor") {
+    if (component.kind === "resistor" || component.kind === "variableResistor" || component.kind === "lamp") {
       current = { re: difference.re / component.parameters.ohms, im: difference.im / component.parameters.ohms };
     } else if (component.kind === "capacitor") {
       const scale = omega * component.parameters.farads;

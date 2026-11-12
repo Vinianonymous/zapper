@@ -57,8 +57,8 @@ export function simulateTransient(circuit: ResolvedCircuit): TransientResult {
     const inject = (node: number, value: number): void => { if (node > 0) rhs[node - 1] = rhs[node - 1]! + value; };
     for (const c of elements) {
       const [a, b] = nodes(c.id), ai = a - 1, bi = b - 1;
-      if (c.kind === "resistor" || c.kind === "capacitor") {
-        const g = c.kind === "resistor" ? 1 / c.parameters.ohms : c.parameters.farads / dt;
+      if (c.kind === "resistor" || c.kind === "variableResistor" || c.kind === "lamp" || c.kind === "capacitor") {
+        const g = c.kind === "capacitor" ? c.parameters.farads / dt : 1 / c.parameters.ohms;
         stamp(ai, ai, g); stamp(bi, bi, g); stamp(ai, bi, -g); stamp(bi, ai, -g);
         if (c.kind === "capacitor") {
           const history = g * (previous.nodeVolts[a]! - previous.nodeVolts[b]!);
@@ -86,7 +86,7 @@ export function simulateTransient(circuit: ResolvedCircuit): TransientResult {
         const [a, b] = nodes(c.id);
         const voltage = nodeVolts[a]! - nodeVolts[b]!;
         let current = 0;
-        if (c.kind === "resistor") current = voltage / c.parameters.ohms;
+        if (c.kind === "resistor" || c.kind === "variableResistor" || c.kind === "lamp") current = voltage / c.parameters.ohms;
         else if (c.kind === "capacitor") current = c.parameters.farads / dt * (voltage - (previous.nodeVolts[a]! - previous.nodeVolts[b]!));
         else if (c.kind === "currentSource") current = sourceAt(c.parameters, time);
         else if (branchIndex.has(c.id)) current = solution[branchIndex.get(c.id)!]!;

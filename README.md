@@ -10,7 +10,7 @@ Requires Node.js 22.12+ and npm.
 
 ```sh
 npm ci
-npm run dev
+npm start
 ```
 
 For deployment, run `npm run build` and publish **all of `dist/`** to any static
@@ -30,8 +30,9 @@ to initially load the static files; an offline-installable PWA is not provided.
 3. Use **Wire** to click a start and an end. Hold Shift for a vertical-first
    elbow. A bare wire crossing is not connected; place a **Junction** to join it.
    Wire endpoints, component pins and overlapping collinear wires do connect.
-4. Moving/rotating a part leaves wires in place and may detach its pins. Check
-   the connectivity list. Edits, undo and redo clear valid readings until rerun.
+4. Start a wire at a pin or existing wire. Moving/rotating a part moves its
+   attached wire endpoints; deleting it removes wires touching its pins.
+   Edits, undo and redo clear valid readings until rerun.
 5. Load **RC low-pass** for magnitude/phase plots or **RLC pulse response** for
    time-domain plots. Loading/importing warns before replacing a nonempty circuit.
 
@@ -41,7 +42,9 @@ positive current flows **a → b**. Source pin a is positive relative to b. Sele
 a part shows its direction arrow. Charts have named traces and dash patterns,
 keyboard-operable sample sliders and expandable sampled-value tables.
 
-`Escape` cancels a tool/gesture, `Delete`/`Backspace` deletes selection, `R`
+`Ctrl/Cmd+Enter` runs the selected analysis. Short local tones play when you
+place/delete parts or wires and when a run starts/finishes (browser audio support
+required). `Escape` cancels a tool/gesture, `Delete`/`Backspace` deletes selection, `R`
 rotates, `Ctrl/Cmd+Z` undoes, and `Ctrl/Cmd+Y` or `Ctrl/Cmd+Shift+Z` redoes.
 Scroll to zoom; middle-drag or the Pan tool pans. The editor is pointer-first;
 controls, properties and results are keyboard accessible.
@@ -51,6 +54,8 @@ controls, properties and results are keyboard accessible.
 | Part | DC | AC | Transient |
 | --- | --- | --- | --- |
 | Resistor | Ohm's law | Same | Same |
+| Variable resistor | Adjustable fixed resistance (two terminals) | Same | Same |
+| Lamp | Fixed resistance approximation (no brightness/thermal model) | Same | Same |
 | Capacitor | Open | `jωC` admittance | Backward Euler history of voltage |
 | Inductor | Ideal zero-volt branch | `1/(jωL)` admittance | Backward Euler history of current |
 | Voltage/current source | DC value | Independent magnitude and phase | DC, sine or pulse waveform |

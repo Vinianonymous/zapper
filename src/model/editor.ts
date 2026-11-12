@@ -30,7 +30,7 @@ export const onSegment = (p: Point, a: Point, b: Point): boolean =>
   (a.y === b.y && p.y === a.y && p.x >= Math.min(a.x, b.x) && p.x <= Math.max(a.x, b.x));
 
 export function nextRef(document: CircuitDocument, kind: ComponentKind): string {
-  const prefix: Record<ComponentKind, string> = { resistor: "R", capacitor: "C", inductor: "L", voltageSource: "V", currentSource: "I", switch: "S", ground: "GND" };
+  const prefix: Record<ComponentKind, string> = { resistor: "R", variableResistor: "VR", lamp: "B", capacitor: "C", inductor: "L", voltageSource: "V", currentSource: "I", switch: "S", ground: "GND" };
   const used = new Set(document.components.map((c) => c.ref));
   let i = 1;
   while (used.has(`${prefix[kind]}${i}`)) i++;
@@ -41,6 +41,8 @@ export function createComponent(kind: ComponentKind, position: Point, ref: strin
   const base = { id, ref, position, rotation: 0 as Rotation };
   switch (kind) {
     case "resistor": return { ...base, kind, parameters: { ohms: 1000 } };
+    case "variableResistor": return { ...base, kind, parameters: { ohms: 1000 } };
+    case "lamp": return { ...base, kind, parameters: { ohms: 100 } };
     case "capacitor": return { ...base, kind, parameters: { farads: 1e-6 } };
     case "inductor": return { ...base, kind, parameters: { henrys: 1e-3 } };
     case "switch": return { ...base, kind, parameters: { closed: false } };

@@ -7,17 +7,19 @@ export function emptyDocument(): CircuitDocument {
 }
 
 export const KIND_LABELS: Record<ComponentKind, string> = {
-  resistor: "Resistor", capacitor: "Capacitor", inductor: "Inductor", voltageSource: "Voltage source",
+  resistor: "Resistor", variableResistor: "Variable resistor", lamp: "Lamp", capacitor: "Capacitor", inductor: "Inductor", voltageSource: "Voltage source",
   currentSource: "Current source", switch: "Switch", ground: "Ground",
 };
 
 export function newComponent(kind: ComponentKind, existing: Component[]): Component {
-  const prefix = { resistor: "R", capacitor: "C", inductor: "L", voltageSource: "V", currentSource: "I", switch: "S", ground: "G" }[kind];
+  const prefix = { resistor: "R", variableResistor: "VR", lamp: "B", capacitor: "C", inductor: "L", voltageSource: "V", currentSource: "I", switch: "S", ground: "G" }[kind];
   let number = 1;
   while (existing.some((c) => c.ref === `${prefix}${number}`)) number++;
   const base = { id: crypto.randomUUID(), ref: `${prefix}${number}`, position: { x: 0, y: 0 }, rotation: 0 as const };
   switch (kind) {
     case "resistor": return { ...base, kind, parameters: { ohms: 1000 } };
+    case "variableResistor": return { ...base, kind, parameters: { ohms: 1000 } };
+    case "lamp": return { ...base, kind, parameters: { ohms: 100 } };
     case "capacitor": return { ...base, kind, parameters: { farads: 1e-6 } };
     case "inductor": return { ...base, kind, parameters: { henrys: .001 } };
     case "voltageSource":

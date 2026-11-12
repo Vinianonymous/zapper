@@ -46,7 +46,9 @@ export function validateDocument(value: unknown): CircuitDocument {
     require([0, 90, 180, 270].includes(c.rotation as number), "Rotation must be 0, 90, 180 or 270 degrees.");
     const p = object(c.parameters, "Parameters");
     switch (c.kind) {
-      case "resistor": keys(p, ["ohms"], "Resistor"); number(p.ohms, "Resistance (Ω)", 1e-6, 1e12); break;
+      case "resistor":
+      case "variableResistor":
+      case "lamp": keys(p, ["ohms"], "Resistive part"); number(p.ohms, "Resistance (Ω)", 1e-6, 1e12); break;
       case "capacitor": keys(p, ["farads"], "Capacitor"); number(p.farads, "Capacitance (F)", 1e-15, 1e3); break;
       case "inductor": keys(p, ["henrys"], "Inductor"); number(p.henrys, "Inductance (H)", 1e-15, 1e6); break;
       case "switch": keys(p, ["closed"], "Switch"); require(typeof p.closed === "boolean", "Switch state must be Boolean."); break;

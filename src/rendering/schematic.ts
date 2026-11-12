@@ -16,7 +16,9 @@ function sourceValue(parameters: SourceParameters, unit: string): string {
 
 export function componentValue(c: Component): string {
   switch (c.kind) {
-    case "resistor": return formatValue(c.parameters.ohms, "Ω");
+    case "resistor":
+    case "variableResistor":
+    case "lamp": return formatValue(c.parameters.ohms, "Ω");
     case "capacitor": return formatValue(c.parameters.farads, "F");
     case "inductor": return formatValue(c.parameters.henrys, "H");
     case "voltageSource": return sourceValue(c.parameters, "V");
@@ -60,6 +62,8 @@ function symbol(c: Component): string {
   const lead = '<path d="M-40 0H-23 M23 0H40"/>';
   switch (c.kind) {
     case "resistor": return lead + '<path d="M-23 0L-18 -10 -10 10 -2 -10 6 10 14 -10 22 0"/>';
+    case "variableResistor": return lead + '<path d="M-23 0L-18 -10 -10 10 -2 -10 6 10 14 -10 22 0 M-6 -21L9 17 M3 13L9 17 10 10"/>';
+    case "lamp": return lead + '<circle r="22"/><path d="M-15 -15L15 15 M15 -15L-15 15"/>';
     case "capacitor": return '<path d="M-40 0H-6 M6 0H40 M-6 -19V19 M6 -19V19"/>';
     case "inductor": return lead + '<path d="M-23 0C-23 -22 -11 -22 -11 0C-11 -22 1 -22 1 0C1 -22 13 -22 13 0C13 -22 23 -22 23 0"/>';
     case "voltageSource": return lead + '<circle r="23"/><path d="M-16 0H-6 M-11 -5V5 M7 0H17"/>';

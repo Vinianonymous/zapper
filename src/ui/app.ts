@@ -1,6 +1,6 @@
 import type { AnalysisKind, CircuitDocument, Component, ComponentKind, PinName, Point, Probe, Waveform } from "../model/contracts";
 import { emptyDocument, exampleDocument, KIND_LABELS } from "../model/document";
-import { GRID, pins, samePoint } from "../model/geometry";
+import { GRID, onWire, pins, samePoint } from "../model/geometry";
 import { formatValue, parseValue } from "../model/values";
 import { importCircuit, MAX_FILE_BYTES, serializeCircuit, validateDocument } from "../persistence/json";
 import { canExportSchematic, exportSchematic } from "../export/schematic";
@@ -16,7 +16,7 @@ import {
   acIndexAtX, acPlot, acPlotGeometry, AC_COLORS, AC_DASHES, formatPhase, magnitudeDb, type AcSeries,
 } from "./ac-chart";
 import {
-  addJunction, addWire, insertComponent, removeProbe, removeSelection, rotateComponent,
+  addJunction, addWire, insertComponent, removeProbe, removeSelection, rotateComponentInDocument,
   routeWire, setComponentPosition, toggleCurrentProbe, toggleVoltageProbe, updateComponent,
   type Selection,
 } from "../editor/operations";
@@ -67,9 +67,9 @@ const toolOptions: { id: Exclude<Tool, ComponentKind>; icon: string; label: stri
   { id: "voltageProbe", icon: "V", label: "Voltage probe", help: "Click a component pin to toggle a voltage probe relative to ground." },
   { id: "currentProbe", icon: "A", label: "Current probe", help: "Click a two-terminal component to toggle a branch-current probe (a → b)." },
 ];
-const componentKinds: ComponentKind[] = ["resistor", "capacitor", "inductor", "voltageSource", "currentSource", "switch", "ground"];
+const componentKinds: ComponentKind[] = ["resistor", "variableResistor", "lamp", "capacitor", "inductor", "voltageSource", "currentSource", "switch", "ground"];
 const iconFor: Record<ComponentKind, string> = {
-  resistor: "▱", capacitor: "▥", inductor: "⌁", voltageSource: "⊕",
+  resistor: "▱", variableResistor: "↗", lamp: "☼", capacitor: "▥", inductor: "⌁", voltageSource: "⊕",
   currentSource: "⊙", switch: "⫽", ground: "⏚",
 };
 
@@ -94,13 +94,38 @@ let analysisKind: AnalysisKind = "dc";
 let acCursorIndex = 0;
 let transientCursorIndex = 0;
 
+// Audio is created only after a user gesture; unavailable audio never blocks editing.
+let audio: AudioContext | undefined;
+function sound(action: "add" | "remove" | "run" | "success" | "error"): void {
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === "suspended") void audio.resume();
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+    const now = audio.currentTime;
+    const notes = { add: [620, 840], remove: [480, 250], run: [360, 700], success: [720, 980], error: [260, 170] };
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(notes[action][0]!, now);
+    oscillator.frequency.exponentialRampToValueAtTime(notes[action][1]!, now + 0.11);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+    oscillator.connect(gain).connect(audio.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.15);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  } catch { /* Audio is optional, including in restricted browsers. */ }
+}
+
 const analysis = new AnalysisClient((state) => {
   runState = state;
   if (state.status === "complete" && state.response.type === "failure") {
+    sound("error");
     diagnostics = [state.response];
     relatedIds = state.response.relatedIds;
     acceptedCircuit = undefined;
   } else if (state.status === "complete" && state.response.type === "success") {
+    sound("success");
     diagnostics = [];
     relatedIds = [];
     acceptedCircuit = analysisSnapshot ? resolveCircuit(analysisSnapshot) : undefined;
@@ -230,6 +255,7 @@ function toggleProbeAt(target: Element): void {
     try {
       workspace.edit((document) => { added = toggleVoltageProbe(document, hit.componentId, hit.pin); });
       commit(added ? "Voltage probe added." : "Voltage probe removed.");
+      sound(added ? "add" : "remove");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Probe could not be changed.", "error"); }
     return;
   }
@@ -240,6 +266,7 @@ function toggleProbeAt(target: Element): void {
   try {
     workspace.edit((document) => { added = toggleCurrentProbe(document, component.id); });
     commit(added ? "Current probe added (positive a → b)." : "Current probe removed.");
+    sound(added ? "add" : "remove");
   } catch (error) { setMessage(error instanceof Error ? error.message : "Probe could not be changed.", "error"); }
 }
 
@@ -259,6 +286,11 @@ function onPointerDown(event: PointerEvent): void {
   }
   if (tool === "wire") {
     if (!wireStart) {
+      if (!workspace.document.components.some((component) => pins(component).some((pin) => samePoint(pin.position, point))) &&
+        !workspace.document.wires.some((wire) => onWire(point, wire))) {
+        setMessage("Start a wire at a component pin or an existing wire.", "error");
+        return;
+      }
       wireStart = point;
       wirePreview = point;
       render();
@@ -266,13 +298,13 @@ function onPointerDown(event: PointerEvent): void {
       const start = wireStart;
       wireStart = null;
       wirePreview = null;
-      edit((document) => { addWire(document, start, point, event.shiftKey); }, "Wire added.");
+      if (edit((document) => { if (!addWire(document, start, point, event.shiftKey)) throw new Error("Choose a different end point."); }, "Wire added.")) sound("add");
     }
     return;
   }
   if (tool === "junction") {
     let added = false;
-    edit((document) => { added = addJunction(document, point); }, added ? "Junction added." : "A junction already exists here.");
+    if (edit((document) => { added = addJunction(document, point); }, "Junction updated.") && added) sound("add");
     return;
   }
   if (tool !== "select") {
@@ -307,6 +339,7 @@ function onPointerDown(event: PointerEvent): void {
 function insertComponentPlaceholder(kind: ComponentKind, point: Point): boolean {
   let id = "";
   const ok = edit((document) => { id = insertComponent(document, kind, point).id; }, `${KIND_LABELS[kind]} placed.`);
+  if (ok) sound("add");
   if (ok && id) selection = { type: "component", id };
   chooseTool("select");
   return ok;
@@ -371,7 +404,7 @@ function onPointerUp(event: PointerEvent): void {
       workspace.document = finished.startDocument;
       try {
         workspace.replace(next);
-        commit("Part moved. Wires stay in place; check the extracted connectivity.");
+        commit("Part moved. Attached wire ends followed its pins.");
       } catch (error) {
         workspace.document = finished.startDocument;
         setMessage(error instanceof Error ? error.message : "Move failed.", "error");
@@ -430,7 +463,7 @@ function componentHeading(component: Component): void {
 }
 
 function passiveUnit(component: Component): { key: "ohms" | "farads" | "henrys"; unit: string } | null {
-  if (component.kind === "resistor") return { key: "ohms", unit: "Ω" };
+  if (component.kind === "resistor" || component.kind === "variableResistor" || component.kind === "lamp") return { key: "ohms", unit: "Ω" };
   if (component.kind === "capacitor") return { key: "farads", unit: "F" };
   if (component.kind === "inductor") return { key: "henrys", unit: "H" };
   return null;
@@ -544,14 +577,14 @@ function renderInspector(): void {
     });
     const passive = passiveUnit(component);
     if (passive) {
-      const passiveValue = component.kind === "resistor" ? component.parameters.ohms
+      const passiveValue = component.kind === "resistor" || component.kind === "variableResistor" || component.kind === "lamp" ? component.parameters.ohms
         : component.kind === "capacitor" ? component.parameters.farads
           : component.kind === "inductor" ? component.parameters.henrys : 0;
       addField(`Value (${passive.unit})`, formatValue(passiveValue, passive.unit), (text) => {
         const value = parseValue(text);
         if (!(value > 0)) throw new Error("Component value must be greater than zero.");
         edit((document) => { updateComponent(document, component.id, (item) => {
-          if (item.kind === "resistor") item.parameters.ohms = value;
+          if (item.kind === "resistor" || item.kind === "variableResistor" || item.kind === "lamp") item.parameters.ohms = value;
           if (item.kind === "capacitor") item.parameters.farads = value;
           if (item.kind === "inductor") item.parameters.henrys = value;
         }); });
@@ -589,13 +622,13 @@ function renderInspector(): void {
       edit((document) => { setComponentPosition(document, component.id, { x: component.position.x, y }); }, "Part moved.");
     }, "number");
     addAction("Rotate 90°", () => edit((document) => {
-      updateComponent(document, component.id, rotateComponent);
+      rotateComponentInDocument(document, component.id);
     }, "Part rotated."));
     addAction("Delete", () => deleteSelection());
     if (component.kind !== "ground") {
       const probed = workspace.document.probes.some((probe) => probe.kind === "current" && probe.componentId === component.id);
       addAction(probed ? "Remove current probe" : "Add current probe", () => {
-        edit((document) => { toggleCurrentProbe(document, component.id); }, probed ? "Current probe removed." : "Current probe added.");
+        if (edit((document) => { toggleCurrentProbe(document, component.id); }, probed ? "Current probe removed." : "Current probe added.")) sound(probed ? "remove" : "add");
       }, true);
     }
     return;
@@ -617,7 +650,7 @@ function renderInspector(): void {
 function deleteSelection(): void {
   if (!selection) return;
   const target = selection;
-  edit((document) => removeSelection(document, target), "Selection deleted.");
+  if (edit((document) => removeSelection(document, target), "Selection deleted.")) sound("remove");
   selection = null;
   render();
 }
@@ -651,7 +684,7 @@ function renderProbes(): void {
     remove.title = "Remove probe";
     remove.setAttribute("aria-label", `Remove ${probeLabel(probe)}`);
     remove.textContent = "×";
-    remove.addEventListener("click", () => edit((document) => removeProbe(document, probe.id), "Probe removed."));
+    remove.addEventListener("click", () => { if (edit((document) => removeProbe(document, probe.id), "Probe removed.")) sound("remove"); });
     row.append(label, remove);
     probeList.append(row);
   }
@@ -1221,19 +1254,21 @@ function bindActions(): void {
       render();
     }
   });
-  runButton.addEventListener("click", () => {
+    runButton.addEventListener("click", () => {
     const kind = analysisKind;
     diagnostics = validateAnalysisInput(workspace.document, kind);
     preflightFailed = diagnostics.length > 0;
     relatedIds = diagnostics.flatMap((diagnostic) => diagnostic.relatedIds);
     acceptedCircuit = undefined;
     if (preflightFailed) {
+      sound("error");
       runState = { status: "idle" };
       render();
       return;
     }
     if (kind === "ac") acCursorIndex = 0;
     analysisSnapshot = structuredClone(workspace.document);
+    sound("run");
     analysis.run(analysisSnapshot, kind);
   });
   cancelButton.addEventListener("click", () => analysis.cancel());
@@ -1305,6 +1340,11 @@ function bindActions(): void {
       commit("Redo.");
       return;
     }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      if (!runButton.disabled) runButton.click();
+      return;
+    }
     if (event.key === "Escape") {
       cancelGesture();
       chooseTool("select");
@@ -1320,7 +1360,7 @@ function bindActions(): void {
     }
     if (event.key.toLowerCase() === "r" && selection?.type === "component") {
       const id = selection.id;
-      edit((document) => { updateComponent(document, id, rotateComponent); }, "Part rotated.");
+      edit((document) => { rotateComponentInDocument(document, id); }, "Part rotated.");
     }
   });
 }

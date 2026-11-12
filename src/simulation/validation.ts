@@ -24,7 +24,9 @@ export function validateAnalysisInput(document: CircuitDocument, kind: AnalysisK
   for (const component of document.components) {
     let value: number | undefined;
     switch (component.kind) {
-      case "resistor": value = component.parameters.ohms; break;
+      case "resistor":
+      case "variableResistor":
+      case "lamp": value = component.parameters.ohms; break;
       case "capacitor": value = component.parameters.farads; break;
       case "inductor": value = component.parameters.henrys; break;
       case "voltageSource":

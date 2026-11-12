@@ -21,7 +21,9 @@ function line(parent: SVGElement, x1: number, y1: number, x2: number, y2: number
 
 function value(component: Component): string {
   switch (component.kind) {
-    case "resistor": return formatValue(component.parameters.ohms, "Ω");
+    case "resistor":
+    case "variableResistor":
+    case "lamp": return formatValue(component.parameters.ohms, "Ω");
     case "capacitor": return formatValue(component.parameters.farads, "F");
     case "inductor": return formatValue(component.parameters.henrys, "H");
     case "voltageSource": return formatValue(component.parameters.dc, "V");
@@ -43,6 +45,8 @@ function symbol(component: Component, resolved: ResolvedCircuit, selected: boole
     line(body, -2, 0, -1.35, 0);
     line(body, 1.35, 0, 2, 0);
     if (component.kind === "resistor") body.append(element("polyline", { points: "-1.35,0 -1.08,-0.52 -0.65,0.52 -0.22,-0.52 0.22,0.52 0.65,-0.52 1.08,0.52 1.35,0" }));
+    if (component.kind === "variableResistor") body.append(element("polyline", { points: "-1.35,0 -1.08,-0.52 -0.65,0.52 -0.22,-0.52 0.22,0.52 0.65,-0.52 1.08,0.52 1.35,0" }));
+    if (component.kind === "lamp") { body.append(element("circle", { r: 1.2 })); line(body, -0.7, -0.7, 0.7, 0.7); line(body, -0.7, 0.7, 0.7, -0.7); }
     if (component.kind === "capacitor") {
       line(body, -1.35, 0, -0.26, 0); line(body, -0.26, -0.85, -0.26, 0.85);
       line(body, 0.26, -0.85, 0.26, 0.85); line(body, 0.26, 0, 1.35, 0);

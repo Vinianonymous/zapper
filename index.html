@@ -47,6 +47,7 @@
             </select>
           </label>
           <button id="run" type="button" class="primary">Run DC</button>
+          <span class="compact muted" title="Run selected analysis (Ctrl/Cmd+Enter)">Ctrl/Cmd+Enter</span>
           <button id="cancel" type="button" disabled>Cancel</button>
         </nav>
       </header>
@@ -61,7 +62,7 @@
           <details class="help">
             <summary>Shortcuts &amp; wiring</summary>
             <p><kbd>Esc</kbd> select/cancel · <kbd>Del</kbd> remove · <kbd>R</kbd> rotate · <kbd>Ctrl/Cmd+Z</kbd> undo · <kbd>Ctrl/Cmd+Y</kbd> redo.</p>
-            <p>Drag parts to move. Wires stay in place, so moving or rotating can visibly detach pins. Two crossing wires do not connect unless a junction dot is placed.</p>
+             <p>Start wires at a pin or existing wire. Drag or rotate parts to move attached wire ends; deleting a part removes wires touching its pins. Two crossing wires do not connect unless a junction dot is placed.</p>
             <p>Voltage probe: click a pin. Current probe: click a component. Shift changes the wire elbow while drawing.</p>
           </details>
         </aside>

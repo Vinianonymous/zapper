@@ -12,7 +12,10 @@ test("place a part, persist it, and export the circuit JSON", async ({ page }) =
   await expect(page.getByRole("heading", { name: /R3 · Resistor/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Wire/ }).click();
-  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
+  const pin = page.locator('#schematic [data-pin]').last();
+  const pinBox = await pin.boundingBox();
+  if (!pinBox) throw new Error("Component pin has no bounding box");
+  await page.mouse.click(pinBox.x + pinBox.width / 2, pinBox.y + pinBox.height / 2);
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.3);
 
   const stored = await page.evaluate(() =>
